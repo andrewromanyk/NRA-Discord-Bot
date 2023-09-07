@@ -3,8 +3,9 @@ from nextcord.ext import commands
 import datetime
 import random
 import re
+from key import KEY
 
-BOT_KEY = " "
+BOT_KEY = KEY
 
 intents = nextcord.Intents.default()
 intents.message_content = True
