@@ -5,8 +5,8 @@ import googleapiclient.errors
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from pytube import extract
+import key
 
-key = "AIzaSyCJ2fPPkiAkN-lIS1G_mD9QtRvKjn-nHu4"
 val = URLValidator()
 
 api_service_name = "youtube"
