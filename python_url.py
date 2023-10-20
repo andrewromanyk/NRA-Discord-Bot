@@ -1,16 +1,13 @@
-import os
-import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from pytube import extract
 import key
+import requests
+from bs4 import BeautifulSoup
 
 val = URLValidator()
-
-api_service_name = "youtube"
-api_version = "v3"
 
 def getSongAttr(link):
 
@@ -24,11 +21,18 @@ def getSongAttr(link):
     attr = []
     
     if "music.youtube.com" in link:
-        pass
+        request = requests.get(link)
+        soup = BeautifulSoup(request.text, "html.parser")
+        time = soup.find_all("title")
+        attr.append(time[1].string)
+        attr.append("None")
+
 
     
     elif "youtube.com" in link:
         id = extract.video_id(link)
+        api_service_name = "youtube"
+        api_version = "v3"
         youtube = googleapiclient.discovery.build(api_service_name, api_version, developerKey=key.key)
         request = youtube.videos().list(
             part = "contentDetails,snippet",
