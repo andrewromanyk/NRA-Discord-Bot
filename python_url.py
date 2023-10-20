@@ -29,7 +29,7 @@ def getSongAttr(link):
     
     elif "youtube.com" in link:
         id = extract.video_id(link)
-        youtube = googleapiclient.discovery.build(api_service_name, api_version, developerKey=key)
+        youtube = googleapiclient.discovery.build(api_service_name, api_version, developerKey=key.key)
         request = youtube.videos().list(
             part = "contentDetails,snippet",
             id = id)
