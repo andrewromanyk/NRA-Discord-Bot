@@ -5,8 +5,11 @@ import random
 import re
 import sqlite3
 from key import KEY
-import python_url
+from songvote import *
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 
+image_url = "https://media.istockphoto.com/id/524712856/pl/wektor/stos-monet-ilustracja-wektorowa-ikony-p%C5%82aski-stos-pieni%C4%99dzy-pojedyncze.jpg?s=612x612&w=0&k=20&c=YnHQaj83pN7DpeP6AY5jiIVpFVh3is9LKr3b-h5z-TM="
 
 BOT_KEY = KEY
 
@@ -66,35 +69,68 @@ async def offersong(interaction: nextcord.Interaction,
         required=True
     )):
 
-    print("Does 0st think work pls")
+    #Check if it is a valid link
+    val = URLValidator()
+    try: 
+        val(song_link)
+    except ValidationError: 
+        embed_notlink = nextcord.Embed(title="Аргумент не є посиланням", color=nextcord.Color.blurple())
+        await interaction.send(embed=embed_notlink, ephemeral=True)
+        return
 
     conn = sqlite3.connect("bot.db")
     cursor = conn.cursor()
-
-    print("Does 1st think work pls")
 
     try:
         cursor.execute("""CREATE TABLE musicLinks (
                 id TEXT,
                 link TEXT,
+                name TEXT,
+                author TEXT,
+                time TEXT,
                 votes INTEGER
         )""")
-    except: 
-        print("already exists lmao")
+    except: pass
 
     cursor.execute("""SELECT id FROM musicLinks""")
+    usersIds = cursor.fetchall()
+    print(usersIds)
 
-    musicIds = cursor.fetchall()
     userId = interaction.user.id
+    print(userId)
 
-    if str(userId) in musicIds: pass
+    if (str(userId),) in usersIds:
+        cursor.execute(f"""SELECT name FROM musicLinks WHERE id == {str(userId)}""")
+        songname = cursor.fetchone()[0]
+        embed = nextcord.Embed(description=f"Пісня, яку Ви додали до цього: {songname}\n\nБажаєте замінити її, чи залишити стару?\nОбмежень на кількість змін пісень немає", title="Ви вже запропонували одну пісню", color=nextcord.Color.blurple())
+        button = buttons.replaceSong()
+        answer = await interaction.send(embed=embed, ephemeral=True, view = button)
+        await button.wait()
+        await answer.delete()
+        if button.value:
+            attributes = songattr.getSongAttr(song_link)
+            if attributes[0] == "":
+                embed_badlink = nextcord.Embed(title="Посилання пошкоджене, або виникла помилка,\nчерез яку неможливо ідентифікувати пісню", color=nextcord.Color.blurple())
+                await interaction.send(embed=embed_badlink, ephemeral=True)
+                return
+            cursor.execute(f"""UPDATE musicLinks SET id = ?, link = ?, name = ?, author = ?, time = ?, votes = ? WHERE id = {userId}""", (userId, song_link, *attributes, 0))
+            conn.commit()
+            embed_accept = nextcord.Embed(title=f"Успішно замінив пісню на {attributes[0]}", color=nextcord.Color.blurple())
+            await interaction.send(embed=embed_accept, ephemeral=True)
+            return
+        else:
+            embed_decline = nextcord.Embed(title="Зміну було відмінено", color=nextcord.Color.blurple())
+            await interaction.send(embed=embed_decline, ephemeral=True)
+
     else:
-        cursor.execute("""INSERT INTO musicLinks VALUES (?, ?) """, (userId, song_link))
-
-    print("Done something")
-    
-    python_url.getSongAttr(song_link)
-
-    conn.commit()
+        attributes = songattr.getSongAttr(song_link)
+        if attributes[0] == "":
+                embed_badlink = nextcord.Embed(title="Посилання пошкоджене, або виникла помилка,\nчерез яку неможливо ідентифікувати пісню", color=nextcord.Color.blurple())
+                await interaction.send(embed=embed_badlink, ephemeral=True)
+                return
+        cursor.execute("""INSERT INTO musicLinks VALUES(?, ?, ?, ?, ?, ?)""", (userId, song_link, *attributes, 0))
+        conn.commit()
+        embed_added = nextcord.Embed(title=f"Успішно додано пісню {attributes[0]} до списку пісень", color=nextcord.Color.blurple())
+        await interaction.send(embed=embed_added, ephemeral=True)
 
 bot.run(BOT_KEY)
