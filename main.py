@@ -133,4 +133,16 @@ async def offersong(interaction: nextcord.Interaction,
         embed_added = nextcord.Embed(title=f"Успішно додано пісню {attributes[0]} до списку пісень", color=nextcord.Color.blurple())
         await interaction.send(embed=embed_added, ephemeral=True)
 
+@bot.slash_command(name="songlist", description="список пісень")
+async def songlist(interaction: nextcord.Interaction):
+    conn = sqlite3.connect("bot.db")
+    cursor = conn.cursor()
+    cursor.execute(f"""SELECT name, link FROM musicLinks""")
+    songlist = cursor.fetchall()
+    description = ""
+    for song in songlist: description += f"{song[0]}\n{song[1]}"
+    embed_songlist = nextcord.Embed(title="Список усіх пісень:", description=description, color=nextcord.Color.blurple())
+    await interaction.send(embed=embed_songlist, ephemeral=True)
+
+
 bot.run(BOT_KEY)

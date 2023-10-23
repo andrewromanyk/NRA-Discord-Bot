@@ -10,7 +10,6 @@ import math, json, time
 def getSongAttr(link):
     
     if "music.youtube.com/watch" in link:
-        print("it is yt music link")
         driver = webdriver.Chrome()
         driver.get(link)
         time.sleep(1)
@@ -24,7 +23,6 @@ def getSongAttr(link):
 
     
     elif "youtube.com" in link:
-        print("it is yt link")
         try:
             id = extract.video_id(link)
             api_service_name = "youtube"
@@ -35,7 +33,6 @@ def getSongAttr(link):
                 id = id)
             
             response = request.execute()
-            print(response)
 
             name = response["items"][0]["snippet"]["title"]
             duration = response["items"][0]["contentDetails"]["duration"]
@@ -48,7 +45,6 @@ def getSongAttr(link):
         
         
     elif "open.spotify.com/track/" in link:
-        print("it is spotify link")
         try:
             token = songvote.spotifyapi.get_token()
             id = link[len(link) - 22:]
