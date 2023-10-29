@@ -1,26 +1,56 @@
 import nextcord
 from nextcord.ext import commands
-import datetime
+import datetime, time, asyncio, json
 import random
 import re
-import sqlite3
+import sqlite3, schedule, pytz
 from key import KEY
-from songvote import *
-from django.core.validators import URLValidator
-from django.core.exceptions import ValidationError
-
-image_url = "https://media.istockphoto.com/id/524712856/pl/wektor/stos-monet-ilustracja-wektorowa-ikony-p%C5%82aski-stos-pieni%C4%99dzy-pojedyncze.jpg?s=612x612&w=0&k=20&c=YnHQaj83pN7DpeP6AY5jiIVpFVh3is9LKr3b-h5z-TM="
+import cogs
 
 BOT_KEY = KEY
+RATING_IN_PROCESS = True
 
 intents = nextcord.Intents.default()
 intents.message_content = True
-
 bot = commands.Bot(command_prefix="l.", intents=intents)
-
 @bot.event
 async def on_ready():
     print(f"Started working at {datetime.datetime.utcnow()}")
+
+
+def createDB():
+    conn = sqlite3.connect("bot.db")
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""CREATE TABLE musicLinks (
+                id TEXT,
+                link TEXT,
+                name TEXT,
+                author TEXT,
+                time TEXT,
+                votes INTEGER
+        )""")
+    except: pass
+
+    try:
+        cursor.execute("""CREATE TABLE voted (
+                id TEXT,
+                name TEXT
+        )""")
+    except: pass
+    conn.commit()
+    conn.close()
+    
+createDB()
+
+async def forAdmin(interaction: nextcord.Interaction):
+    if not interaction.permissions.administrator:
+        embed_notadmin = nextcord.Embed(title=f"Ви не можете використати цю команду\nНеобхідні права адміністратора", color=nextcord.Color.blurple())
+        await interaction.send(embed=embed_notadmin, ephemeral=True)
+        return False
+    return True
+
+bot.add_cog(cogs.sovo.SongVote(bot))
 
 @bot.slash_command(name="addrole", description="тестовий створення ролі")
 async def addrole(interaction: nextcord.Interaction,
@@ -41,6 +71,8 @@ async def addrole(interaction: nextcord.Interaction,
         required=False
     )):
 
+    if not await forAdmin(interaction): return
+
     if rgb == None:
         #default value would return the same numbers every time, so this part is needed.
         random.seed = datetime.time
@@ -58,91 +90,9 @@ async def addrole(interaction: nextcord.Interaction,
     role = await interaction.guild.create_role(name=role_name, color=nextcord.Color.from_rgb(*rgb_list))
     await user.add_roles(role)
 
-    await interaction.send(f"You created a role '{role.name}' for {user.mention}", ephemeral=True)
+    embed_createrole = nextcord.Embed(title=f"{interaction.user.name} створив роль '{role.name}' для {user.name}", color=nextcord.Color.blurple())
+    await interaction.send(embed=embed_createrole)
 
-    print(f"Created role named {role_name} and colored {rgb_list}")
-
-@bot.slash_command(name="offersong", description="запропонувати пісню для рейтингу")
-async def offersong(interaction: nextcord.Interaction,
-    song_link: str = nextcord.SlashOption(
-        name = "link",
-        required=True
-    )):
-
-    #Check if it is a valid link
-    val = URLValidator()
-    try: 
-        val(song_link)
-    except ValidationError: 
-        embed_notlink = nextcord.Embed(title="Аргумент не є посиланням", color=nextcord.Color.blurple())
-        await interaction.send(embed=embed_notlink, ephemeral=True)
-        return
-
-    conn = sqlite3.connect("bot.db")
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute("""CREATE TABLE musicLinks (
-                id TEXT,
-                link TEXT,
-                name TEXT,
-                author TEXT,
-                time TEXT,
-                votes INTEGER
-        )""")
-    except: pass
-
-    cursor.execute("""SELECT id FROM musicLinks""")
-    usersIds = cursor.fetchall()
-    print(usersIds)
-
-    userId = interaction.user.id
-    print(userId)
-
-    if (str(userId),) in usersIds:
-        cursor.execute(f"""SELECT name FROM musicLinks WHERE id == {str(userId)}""")
-        songname = cursor.fetchone()[0]
-        embed = nextcord.Embed(description=f"Пісня, яку Ви додали до цього: {songname}\n\nБажаєте замінити її, чи залишити стару?\nОбмежень на кількість змін пісень немає", title="Ви вже запропонували одну пісню", color=nextcord.Color.blurple())
-        button = buttons.replaceSong()
-        answer = await interaction.send(embed=embed, ephemeral=True, view = button)
-        await button.wait()
-        await answer.delete()
-        if button.value:
-            attributes = songattr.getSongAttr(song_link)
-            if attributes[0] == "":
-                embed_badlink = nextcord.Embed(title="Посилання пошкоджене, або виникла помилка,\nчерез яку неможливо ідентифікувати пісню", color=nextcord.Color.blurple())
-                await interaction.send(embed=embed_badlink, ephemeral=True)
-                return
-            cursor.execute(f"""UPDATE musicLinks SET id = ?, link = ?, name = ?, author = ?, time = ?, votes = ? WHERE id = {userId}""", (userId, song_link, *attributes, 0))
-            conn.commit()
-            embed_accept = nextcord.Embed(title=f"Успішно замінив пісню на {attributes[0]}", color=nextcord.Color.blurple())
-            await interaction.send(embed=embed_accept, ephemeral=True)
-            return
-        else:
-            embed_decline = nextcord.Embed(title="Зміну було відмінено", color=nextcord.Color.blurple())
-            await interaction.send(embed=embed_decline, ephemeral=True)
-
-    else:
-        attributes = songattr.getSongAttr(song_link)
-        if attributes[0] == "":
-                embed_badlink = nextcord.Embed(title="Посилання пошкоджене, або виникла помилка,\nчерез яку неможливо ідентифікувати пісню", color=nextcord.Color.blurple())
-                await interaction.send(embed=embed_badlink, ephemeral=True)
-                return
-        cursor.execute("""INSERT INTO musicLinks VALUES(?, ?, ?, ?, ?, ?)""", (userId, song_link, *attributes, 0))
-        conn.commit()
-        embed_added = nextcord.Embed(title=f"Успішно додано пісню {attributes[0]} до списку пісень", color=nextcord.Color.blurple())
-        await interaction.send(embed=embed_added, ephemeral=True)
-
-@bot.slash_command(name="songlist", description="список пісень")
-async def songlist(interaction: nextcord.Interaction):
-    conn = sqlite3.connect("bot.db")
-    cursor = conn.cursor()
-    cursor.execute(f"""SELECT name, link FROM musicLinks""")
-    songlist = cursor.fetchall()
-    description = ""
-    for song in songlist: description += f"{song[0]}\n{song[1]}"
-    embed_songlist = nextcord.Embed(title="Список усіх пісень:", description=description, color=nextcord.Color.blurple())
-    await interaction.send(embed=embed_songlist, ephemeral=True)
 
 
 bot.run(BOT_KEY)
