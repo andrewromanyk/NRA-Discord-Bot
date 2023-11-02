@@ -52,10 +52,11 @@ async def forAdmin(interaction: nextcord.Interaction):
 
 bot.add_cog(cogs.sovo.SongVote(bot))
 
-@bot.slash_command(name="addrole", description="тестовий створення ролі")
+@bot.slash_command(name="addrole", description="створення роля для учасника")
 async def addrole(interaction: nextcord.Interaction,
     role_name: str = nextcord.SlashOption(
-        name = "role_name",
+        name = "name",
+        description="назва ролі",
         required=True
     ),
         user: nextcord.Member = nextcord.SlashOption(

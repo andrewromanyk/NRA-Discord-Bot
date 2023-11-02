@@ -209,7 +209,7 @@ class SongVote(commands.Cog):
 
     #Allows users to vote for songs
     #Can be used by all users
-    @nextcord.slash_command(name="votesong", description="список пісень")
+    @nextcord.slash_command(name="votesong", description="проголосувати за пісню")
     async def votesong(self, interaction: nextcord.Interaction):
         await interaction.response.defer()
 
