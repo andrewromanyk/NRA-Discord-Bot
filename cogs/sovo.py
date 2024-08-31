@@ -139,7 +139,7 @@ class SongVote(commands.Cog):
 
         if not await canVote(interaction): return
 
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         #Check if it is a valid link
         val = URLValidator()
@@ -163,34 +163,36 @@ class SongVote(commands.Cog):
             cursor.execute(f"""SELECT name FROM musicLinks WHERE id == {str(userId)}""")
             songname = cursor.fetchone()[0]
 
-            embed = nextcord.Embed(description=f"Пісня, яку Ви додали до цього: {songname}\n\nБажаєте замінити її, чи залишити стару?\nОбмежень на кількість змін пісень немає", title="Ви вже запропонували одну пісню", color=nextcord.Color.blurple())
+            embed = nextcord.Embed(description=f"Пісня, яку Ви додали до цього: {songname}\n\nБажаєте замінити її, чи залишити стару?\nОбмежень на кількість змін пісень немає", 
+                                   title="Ви вже запропонували одну пісню", 
+                                   color=nextcord.Color.blurple())
             button = sv_buttons.replaceSong()
-            answer = await interaction.send(embed=embed, ephemeral=True, view = button)
+            answer = await interaction.send(embed=embed, view = button, ephemeral=True)
             await button.wait()
             await answer.delete()
 
             if not button.value:
                 embed_decline = nextcord.Embed(title="Зміну було відмінено", color=nextcord.Color.blurple())
-                await interaction.send(embed=embed_decline, ephemeral=True)
+                await interaction.followup.send(embed=embed_decline, ephemeral=True)
                 return
 
         attributes = sv_songattr.getSongAttr(song_link)
 
         if attributes[0] == "":
             embed_badlink = nextcord.Embed(title="Посилання пошкоджене, або виникла помилка,\nчерез яку неможливо ідентифікувати пісню", color=nextcord.Color.blurple())
-            await interaction.send(embed=embed_badlink, ephemeral=True)
+            await interaction.followup.send(embed=embed_badlink, ephemeral=True)
             return
         elif attributes[0] == "nosource":
             embed_badlink = nextcord.Embed(title="Цей сервіс не підтримується.\nПідтримуються YouTube Music, YouTube, Spotify", color=nextcord.Color.blurple())
-            await interaction.send(embed=embed_badlink, ephemeral=True)
+            await interaction.followup.send(embed=embed_badlink, ephemeral=True)
             return
         
-        cursor.execute(f"""DELETE FROM musicLinks WHERE id = '{userId}'""")
-        cursor.execute(f"""DELETE FROM voted WHERE name = '{songname}'""")
+        cursor.execute("""DELETE FROM musicLinks WHERE id = ?""", (userId, ))
+        cursor.execute("""DELETE FROM voted WHERE name = ?""", (songname, ))
         cursor.execute("""INSERT INTO musicLinks VALUES(?, ?, ?, ?,  ?, ?)""", (userId, song_link, *attributes, 0))
         conn.commit()
         embed_added = nextcord.Embed(title=f"Успішно додано пісню {attributes[0]} до списку пісень", color=nextcord.Color.blurple())
-        await interaction.send(embed=embed_added, ephemeral=True)
+        await interaction.followup.send(embed=embed_added, ephemeral=True)
 
 
     #Prints out the songs offered
@@ -204,7 +206,7 @@ class SongVote(commands.Cog):
         description = getsonglist()
 
         embed_songlist = nextcord.Embed(title="Список усіх пісень:", description=description, color=nextcord.Color.blurple())
-        await interaction.send(embed=embed_songlist, ephemeral=True)
+        await interaction.followup.send(embed=embed_songlist, ephemeral=True)
 
 
     #Allows users to vote for songs
@@ -225,12 +227,12 @@ class SongVote(commands.Cog):
             button = sv_buttons.replaceSong()
             votedsong = cursor.execute(f"""SELECT name FROM voted WHERE id = {id}""").fetchone()[0]
             embed_alreadyvoted = nextcord.Embed(title=f'Ви уже голосували за {votedsong}\nБажаєте змінити голос?', color=nextcord.Color.blurple())
-            await interaction.send(embed=embed_alreadyvoted, ephemeral=True, view=button)
+            await interaction.followup.send(embed=embed_alreadyvoted, view=button, ephemeral=True)
             await button.wait()
 
             if not button.value:  
                 embed_votend = nextcord.Embed(title="Голосування відмінено", color=nextcord.Color.blurple())
-                await interaction.send(embed=embed_votend, ephemeral=True)
+                await interaction.followup.send(embed=embed_votend, ephemeral=True)
                 return
             
             cursor.execute(f"""DELETE FROM voted WHERE id = '{id}'""")
@@ -240,7 +242,7 @@ class SongVote(commands.Cog):
 
         view = sv_dropdown.dropdownView()
         embed_voted = nextcord.Embed(title=f"Оберіть пісню, за яку хочете проголосувати", color=nextcord.Color.blurple())
-        await interaction.send(embed=embed_voted, ephemeral=True, view=view)
+        await interaction.followup.send(embed=embed_voted, view=view, ephemeral=True)
 
     #Shows result of the vote
     #Can be called at any time. Only for users with "administrator" permission

@@ -13,6 +13,7 @@ RATING_IN_PROCESS = True
 intents = nextcord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="l.", intents=intents)
+
 @bot.event
 async def on_ready():
     print(f"Started working at {datetime.datetime.utcnow()}")
@@ -40,8 +41,6 @@ def createDB():
     except: pass
     conn.commit()
     conn.close()
-    
-createDB()
 
 async def forAdmin(interaction: nextcord.Interaction):
     if not interaction.permissions.administrator:
@@ -50,7 +49,6 @@ async def forAdmin(interaction: nextcord.Interaction):
         return False
     return True
 
-bot.add_cog(cogs.sovo.SongVote(bot))
 
 @bot.slash_command(name="addrole", description="створення роля для учасника")
 async def addrole(interaction: nextcord.Interaction,
@@ -95,5 +93,7 @@ async def addrole(interaction: nextcord.Interaction,
     await interaction.send(embed=embed_createrole)
 
 
-
-bot.run(BOT_KEY)
+def main():
+    createDB()
+    bot.add_cog(cogs.sovo.SongVote(bot))
+    bot.run(BOT_KEY)
